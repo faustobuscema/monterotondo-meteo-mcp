@@ -1,0 +1,4 @@
+mcp[cli]>=1.2,<2
+httpx
+streamlit
+pandas
