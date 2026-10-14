@@ -1,7 +1,7 @@
 """
 Server MCP di esempio per dati meteorologici e previsioni.
 
-Usa Open-Meteo (gratuito, senza chiave API) e di default punta a Monterotondo.
+Usa Open-Meteo (gratuito, senza chiave API) e di default punta a Fonte di Papa - Monterotondo RM.
 Strumenti esposti:
   - cerca_localita:   da nome a coordinate
   - meteo_attuale:    condizioni in questo momento
