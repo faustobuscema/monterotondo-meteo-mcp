@@ -7,6 +7,10 @@ Strumenti esposti:
   - meteo_attuale:    condizioni in questo momento
   - previsioni:       previsioni giornaliere (1-16 giorni)
 
+Le risposte di meteo_attuale e previsioni includono un blocco "coordinate" con
+le coordinate richieste e quelle effettivamente usate da Open-Meteo (che
+"aggancia" il punto alla cella del modello meteo piu' vicina).
+
 Avvio locale (stdio):          python server.py
 Avvio come servizio HTTP:      python server.py --http
 """
@@ -15,9 +19,9 @@ import sys
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-# Monterotondo (RM) come località predefinita
-LAT_DEFAULT = 42.056747
-LON_DEFAULT = 12.574791
+# Monterotondo (RM) come localita' predefinita
+LAT_DEFAULT = 42.0527
+LON_DEFAULT = 12.6160
 
 mcp = FastMCP("meteo", host="0.0.0.0", port=8000)
 
@@ -40,6 +44,16 @@ def _descrizione(codice: int) -> str:
     return WMO.get(codice, f"Codice meteo {codice}")
 
 
+def _coordinate(lat: float, lon: float, dati: dict) -> dict:
+    """Coordinate ricevute dal client e coordinate usate da Open-Meteo."""
+    return {
+        "richieste": {"latitudine": lat, "longitudine": lon},
+        "usate": {"latitudine": dati["latitude"], "longitudine": dati["longitude"]},
+        "altitudine_m": dati.get("elevation"),
+        "fuso_orario": dati.get("timezone"),
+    }
+
+
 async def _get(url: str, params: dict) -> dict:
     async with httpx.AsyncClient(timeout=15) as client:
         r = await client.get(url, params=params)
@@ -48,22 +62,25 @@ async def _get(url: str, params: dict) -> dict:
 
 
 @mcp.tool()
-async def cerca_localita(nome: str, max_risultati: int = 5) -> list[dict]:
-    """Cerca una località per nome e restituisce nome, regione, latitudine e longitudine."""
+async def cerca_localita(nome: str, max_risultati: int = 5) -> dict:
+    """Cerca una localita' per nome e restituisce nome, regione, latitudine e longitudine."""
     dati = await _get(
         GEOCODING_URL,
         {"name": nome, "count": max_risultati, "language": "it", "format": "json"},
     )
-    return [
-        {
-            "nome": r["name"],
-            "regione": r.get("admin1"),
-            "paese": r.get("country"),
-            "latitudine": r["latitude"],
-            "longitudine": r["longitude"],
-        }
-        for r in dati.get("results", [])
-    ]
+    return {
+        "ricerca": nome,
+        "risultati": [
+            {
+                "nome": r["name"],
+                "regione": r.get("admin1"),
+                "paese": r.get("country"),
+                "latitudine": r["latitude"],
+                "longitudine": r["longitude"],
+            }
+            for r in dati.get("results", [])
+        ],
+    }
 
 
 @mcp.tool()
@@ -87,6 +104,7 @@ async def meteo_attuale(
     )
     c = dati["current"]
     return {
+        "coordinate": _coordinate(latitudine, longitudine, dati),
         "ora_locale": c["time"],
         "condizioni": _descrizione(c["weather_code"]),
         "temperatura_c": c["temperature_2m"],
@@ -104,7 +122,7 @@ async def previsioni(
     giorni: int = 7,
     latitudine: float = LAT_DEFAULT,
     longitudine: float = LON_DEFAULT,
-) -> list[dict]:
+) -> dict:
     """Previsioni giornaliere (da 1 a 16 giorni): minime, massime, pioggia, vento."""
     giorni = max(1, min(giorni, 16))
     dati = await _get(
@@ -123,18 +141,21 @@ async def previsioni(
         },
     )
     d = dati["daily"]
-    return [
-        {
-            "data": d["time"][i],
-            "condizioni": _descrizione(d["weather_code"][i]),
-            "min_c": d["temperature_2m_min"][i],
-            "max_c": d["temperature_2m_max"][i],
-            "pioggia_mm": d["precipitation_sum"][i],
-            "probabilita_pioggia_pct": d["precipitation_probability_max"][i],
-            "vento_max_kmh": d["wind_speed_10m_max"][i],
-        }
-        for i in range(len(d["time"]))
-    ]
+    return {
+        "coordinate": _coordinate(latitudine, longitudine, dati),
+        "giorni": [
+            {
+                "data": d["time"][i],
+                "condizioni": _descrizione(d["weather_code"][i]),
+                "min_c": d["temperature_2m_min"][i],
+                "max_c": d["temperature_2m_max"][i],
+                "pioggia_mm": d["precipitation_sum"][i],
+                "probabilita_pioggia_pct": d["precipitation_probability_max"][i],
+                "vento_max_kmh": d["wind_speed_10m_max"][i],
+            }
+            for i in range(len(d["time"]))
+        ],
+    }
 
 
 if __name__ == "__main__":
