@@ -19,7 +19,7 @@ import sys
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-# Monterotondo (RM) come localita' predefinita
+# Fonte di Papa - Monterotondo (RM) come localita' predefinita
 LAT_DEFAULT = 42.0527
 LON_DEFAULT = 12.6160
 
