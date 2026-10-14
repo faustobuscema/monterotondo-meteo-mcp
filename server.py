@@ -16,8 +16,8 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 
 # Monterotondo (RM) come località predefinita
-LAT_DEFAULT = 42.0527
-LON_DEFAULT = 12.6160
+LAT_DEFAULT = 42.056747
+LON_DEFAULT = 12.574791
 
 mcp = FastMCP("meteo", host="0.0.0.0", port=8000)
 
